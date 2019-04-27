@@ -244,7 +244,9 @@ class MainWindow(QMainWindow, WindowMixin):
         create = action(getStr('crtBox'), self.createShape,
                         'w', 'new', getStr('crtBoxDetail'), enabled=False)
         delete = action(getStr('delBox'), self.deleteSelectedShape,
-                        'Delete', 'delete', getStr('delBoxDetail'), enabled=False)
+                        'Backspace', 'delete', getStr('delBoxDetail'), enabled=False)
+        #Backspace,Mac下是回退键
+        #Delete,windows下的删除键
         copy = action(getStr('dupBox'), self.copySelectedShape,
                       'Ctrl+D', 'copy', getStr('dupBoxDetail'),
                       enabled=False)
@@ -272,11 +274,11 @@ class MainWindow(QMainWindow, WindowMixin):
         self.zoomWidget.setEnabled(False)
 
         zoomIn = action(getStr('zoomin'), partial(self.addZoom, 10),
-                        'Ctrl++', 'zoom-in', getStr('zoominDetail'), enabled=False)
+                        'z', 'zoom-in', getStr('zoominDetail'), enabled=False)
         zoomOut = action(getStr('zoomout'), partial(self.addZoom, -10),
-                         'Ctrl+-', 'zoom-out', getStr('zoomoutDetail'), enabled=False)
+                         'x', 'zoom-out', getStr('zoomoutDetail'), enabled=False)
         zoomOrg = action(getStr('originalsize'), partial(self.setZoom, 100),
-                         'Ctrl+=', 'zoom', getStr('originalsizeDetail'), enabled=False)
+                         'c', 'zoom', getStr('originalsizeDetail'), enabled=False)
         fitWindow = action(getStr('fitWin'), self.setFitWindow,
                            'Ctrl+F', 'fit-window', getStr('fitWinDetail'),
                            checkable=True, enabled=False)
@@ -812,9 +814,11 @@ class MainWindow(QMainWindow, WindowMixin):
             return False
 
     def copySelectedShape(self):
-        self.addLabel(self.canvas.copySelectedShape())
-        # fix copy and delete
-        self.shapeSelectionChanged(True)
+        # cpyshape = self.canvas.copySelectedShape()
+        if self.canvas.selectedShape:
+            self.addLabel(self.canvas.copySelectedShape())
+                # fix copy and delete
+            self.shapeSelectionChanged(True)
 
     def labelSelectionChanged(self):
         item = self.currentItem()
