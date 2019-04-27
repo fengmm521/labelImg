@@ -276,18 +276,20 @@ class MainWindow(QMainWindow, WindowMixin):
         zoomIn = action(getStr('zoomin'), partial(self.addZoom, 10),
                         'z', 'zoom-in', getStr('zoominDetail'), enabled=False)
         zoomOut = action(getStr('zoomout'), partial(self.addZoom, -10),
-                         'x', 'zoom-out', getStr('zoomoutDetail'), enabled=False)
+                         'c', 'zoom-out', getStr('zoomoutDetail'), enabled=False)
         zoomOrg = action(getStr('originalsize'), partial(self.setZoom, 100),
-                         'c', 'zoom', getStr('originalsizeDetail'), enabled=False)
+                         'h', 'zoom', getStr('originalsizeDetail'), enabled=False)
+        moveOrg = action('move', partial(self.moveOrg),
+                         'x', 'moveOrg', 'movep', enabled=False)
         fitWindow = action(getStr('fitWin'), self.setFitWindow,
-                           'Ctrl+F', 'fit-window', getStr('fitWinDetail'),
+                           's', 'fit-window', getStr('fitWinDetail'),
                            checkable=True, enabled=False)
         fitWidth = action(getStr('fitWidth'), self.setFitWidth,
                           'Ctrl+Shift+F', 'fit-width', getStr('fitWidthDetail'),
                           checkable=True, enabled=False)
         # Group zoom controls into a list for easier toggling.
         zoomActions = (self.zoomWidget, zoomIn, zoomOut,
-                       zoomOrg, fitWindow, fitWidth)
+                       zoomOrg,moveOrg, fitWindow, fitWidth)
         self.zoomMode = self.MANUAL_ZOOM
         self.scalers = {
             self.FIT_WINDOW: self.scaleFitWindow,
@@ -331,7 +333,7 @@ class MainWindow(QMainWindow, WindowMixin):
                               lineColor=color1, create=create, delete=delete, edit=edit, copy=copy,
                               createMode=createMode, editMode=editMode, advancedMode=advancedMode,
                               shapeLineColor=shapeLineColor, shapeFillColor=shapeFillColor,
-                              zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,
+                              zoom=zoom, zoomIn=zoomIn, zoomOut=zoomOut, zoomOrg=zoomOrg,moveOrg=moveOrg,
                               fitWindow=fitWindow, fitWidth=fitWidth,
                               zoomActions=zoomActions,
                               fileMenuActions=(
@@ -380,7 +382,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.displayLabelOption,
             labels, advancedMode, None,
             hideAll, showAll, None,
-            zoomIn, zoomOut, zoomOrg, None,
+            zoomIn, zoomOut, zoomOrg,moveOrg, None,
             fitWindow, fitWidth))
 
         self.menus.file.aboutToShow.connect(self.updateFileMenu)
@@ -884,6 +886,81 @@ class MainWindow(QMainWindow, WindowMixin):
         bar = self.scrollBars[orientation]
         bar.setValue(bar.value() + bar.singleStep() * units)
 
+    def moveOrg(self):
+        #
+        # print('test')
+        h_bar = self.scrollBars[Qt.Horizontal]
+        v_bar = self.scrollBars[Qt.Vertical]
+
+        # get the current maximum, to know the difference after zooming
+        h_bar_max = h_bar.maximum()
+        v_bar_max = v_bar.maximum()
+
+        # get the cursor position and canvas size
+        # calculate the desired movement from 0 to 1
+        # where 0 = move left
+        #       1 = move right
+        # up and down analogous
+        cursor = QCursor()
+        pos = cursor.pos()
+        relative_pos = QWidget.mapFromGlobal(self, pos)
+
+        cursor_x = relative_pos.x()
+        cursor_y = relative_pos.y()
+
+        w = self.scrollArea.width()
+        h = self.scrollArea.height()
+
+        # the scaling from 0 to 1 has some padding
+        # you don't have to hit the very leftmost pixel for a maximum-left movement
+        margin = 0.1
+        move_x = (cursor_x - margin * w) / (w - 2 * margin * w)
+        move_y = (cursor_y - margin * h) / (h - 2 * margin * h)
+
+        # clamp the values from 0 to 1
+        move_x = min(max(move_x, 0), 1)
+        move_y = min(max(move_y, 0), 1)
+
+        # get the difference in scrollbar values
+        # this is how far we can move
+        d_h_bar_max = h_bar.maximum() - h_bar_max
+        d_v_bar_max = v_bar.maximum() - v_bar_max
+
+        # get the new scrollbar values
+        new_h_bar_value = h_bar.value() + move_x * d_h_bar_max
+        new_v_bar_value = v_bar.value() + move_y * d_v_bar_max
+        #w,h为显示图片的最大框的宽和高
+        #cursor_x,当前鼠标在编辑器中的x坐标位置,cursor_y，
+        #实际显示图片的坐标范围在cursor坐标中是x从110～w+110,y是从0~h,坐标原点在左上角
+        #h_bar_max,在宽度方向上增加的范围，v_bar_max,在高度方向上增加的范围
+        # print('%d,%d,cursor=(%d,%d),w,h=(%d,%d)'%(pos.x(),pos.y(),cursor_x,cursor_y,w,h))
+        # print('d_h_bar_max=%d,d_v_bar_max=%d'%(d_h_bar_max,d_v_bar_max))
+        # print('h_bar_max=%d,new_v_bar_max=%d'%(h_bar_max,v_bar_max))
+        # print('new_h_bar_value=%d,new_v_bar_value=%d'%(new_h_bar_value,new_v_bar_value))
+
+        midpos_x = w/2 + 110
+        midpos_y = h/2
+
+        # print('midpos=(%d,%d)'%(midpos_x,midpos_y))
+        movepos_x = cursor_x - midpos_x
+        movepos_y = cursor_y - midpos_y
+
+        hpos = h_bar.value() + movepos_x
+        vpos = v_bar.value() + movepos_y
+
+        if hpos < 0:
+            hpos = 0
+        if vpos < 0:
+            vpos = 0
+        if hpos > h_bar_max:
+            hpos = h_bar_max
+        if vpos > v_bar_max:
+            vpos = v_bar_max
+        if h_bar_max > 0:
+            h_bar.setValue(int(hpos))
+        if v_bar_max > 0:
+            v_bar.setValue(int(vpos))
+
     def setZoom(self, value):
         self.actions.fitWidth.setChecked(False)
         self.actions.fitWindow.setChecked(False)
@@ -948,13 +1025,15 @@ class MainWindow(QMainWindow, WindowMixin):
     def setFitWindow(self, value=True):
         if value:
             self.actions.fitWidth.setChecked(False)
-        self.zoomMode = self.FIT_WINDOW if value else self.MANUAL_ZOOM
+        # self.zoomMode = self.FIT_WINDOW if value else self.MANUAL_ZOOM
+        self.zoomMode = self.FIT_WINDOW
         self.adjustScale()
 
     def setFitWidth(self, value=True):
         if value:
             self.actions.fitWindow.setChecked(False)
-        self.zoomMode = self.FIT_WIDTH if value else self.MANUAL_ZOOM
+        # self.zoomMode = self.FIT_WIDTH if value else self.MANUAL_ZOOM
+        self.zoomMode = self.FIT_WIDTH
         self.adjustScale()
 
     def togglePolygons(self, value):
